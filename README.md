@@ -142,3 +142,7 @@ python -m tests.test_protocol   # WebSocket real, backend simulado y un `claude`
 El CI corre ambos en Ubuntu, Windows y macOS (Python 3.9 y 3.12) y compila la app de iPhone y Watch en cada cambio de `ios/`. Al subir un tag `v*` se arma el release con los instaladores. Lo que **no** está probado automáticamente: el mouse real en macOS y Windows y la CLI real de Claude Code
 
 Protocolo: [PROTOCOL.md](PROTOCOL.md)
+
+## Licencia
+
+[MIT](LICENSE)
