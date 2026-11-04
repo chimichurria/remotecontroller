@@ -100,6 +100,14 @@ async def main() -> None:
     assert cfg.port == 8765 and cfg.allow_web and set(cfg.claude.presets) == {"tests", "status", "review"}
     print(f"ok  config.toml cargado en Python {sys.version_info.major}.{sys.version_info.minor}")
 
+    # Bonjour: hostnames larguísimos (runners de CI, DHCP) no pueden romper el arranque
+    from remotehub.server import service_name
+
+    for host in ["mac", "x" * 200, "ñandú-" * 30, ""]:
+        n = service_name(host)
+        assert n.startswith("RemoteHub") and len(n.encode("utf-8")) <= 63, (host[:10], len(n.encode()))
+    print("ok  nombre Bonjour siempre <= 63 bytes")
+
     # El control web no carga nada de afuera (funciona sin internet, en la LAN)
     html = (webui.WEB_DIR / "index.html").read_text(encoding="utf-8")
     assert not re.search(r"(src|href)=[\"']https?://", html), "el control web no debe cargar nada externo"

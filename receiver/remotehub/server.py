@@ -266,6 +266,12 @@ def lan_ip() -> str:
         s.close()
 
 
+def service_name(host: str) -> str:
+    """Nombre de instancia Bonjour: una etiqueta DNS admite hasta 63 bytes (hostnames largos rompían el arranque)."""
+    name = f"RemoteHub {host}".encode("utf-8")[:63]
+    return name.decode("utf-8", "ignore").rstrip()
+
+
 async def advertise(port: int):
     """Anuncia el servicio por Bonjour. Devuelve el objeto para cerrarlo luego."""
     try:
@@ -276,13 +282,20 @@ async def advertise(port: int):
         return None
     ip = lan_ip()
     host = socket.gethostname().split(".")[0]
-    info = ServiceInfo(
-        "_remotehub._tcp.local.",
-        f"RemoteHub {host}._remotehub._tcp.local.",
-        addresses=[socket.inet_aton(ip)],
-        port=port,
-        properties={"v": str(PROTOCOL_VERSION), "platform": PLATFORM, "ip": ip, "port": str(port)},
-    )
-    zc = AsyncZeroconf(ip_version=IPVersion.V4Only)
-    await zc.async_register_service(info)
+    zc = None
+    try:
+        info = ServiceInfo(
+            "_remotehub._tcp.local.",
+            f"{service_name(host)}._remotehub._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=port,
+            properties={"v": str(PROTOCOL_VERSION), "platform": PLATFORM, "ip": ip, "port": str(port)},
+        )
+        zc = AsyncZeroconf(ip_version=IPVersion.V4Only)
+        await zc.async_register_service(info)
+    except Exception as e:  # el descubrimiento es opcional: nunca debe tirar el receptor
+        log.warning("no se pudo anunciar por Bonjour (%s): sin descubrimiento automático", e)
+        if zc is not None:
+            await zc.async_close()
+        return None
     return zc, info
