@@ -11,6 +11,34 @@ from .config import ClaudeConfig
 
 OnChunk = Callable[[str], Awaitable[None]]
 
+# Una app abierta desde el Finder o el menú Inicio NO hereda el PATH de la terminal,
+# así que `claude` (y `node`, del que depende) no se encontrarían. Buscamos en los
+# lugares típicos de instalación.
+EXTRA_DIRS = [
+    "~/.local/bin", "~/.claude/local", "~/.npm-global/bin", "~/.volta/bin", "~/.bun/bin",
+    "/opt/homebrew/bin", "/usr/local/bin", "%APPDATA%/npm", "%LOCALAPPDATA%/Programs/claude",
+]
+
+
+def _extra_path() -> str:
+    dirs = (os.path.expanduser(os.path.expandvars(d)) for d in EXTRA_DIRS)
+    return os.pathsep.join(d for d in dirs if "%" not in d and os.path.isdir(d))
+
+
+def find_bin(name: str) -> str | None:
+    """Ruta del ejecutable, buscando en el PATH y después en los lugares típicos."""
+    found = shutil.which(name)
+    if found or os.path.dirname(name):  # ruta explícita: no se busca en otro lado
+        return found
+    return shutil.which(name, path=_extra_path())
+
+
+def child_env() -> dict[str, str]:
+    """Entorno del proceso hijo con el PATH ampliado (claude suele ser un script de node)."""
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join(p for p in (env.get("PATH", ""), _extra_path()) if p)
+    return env
+
 
 def build_args(cfg: ClaudeConfig, prompt: str, cont: bool) -> list[str]:
     # El prompt va justo después de -p: los flags variádicos (--allowedTools)
@@ -57,10 +85,15 @@ class ClaudeRunner:
     async def run(self, prompt: str, cont: bool, on_chunk: OnChunk) -> tuple[bool, str]:
         if self.busy:
             return False, "Ya hay una ejecución en curso (cancelala primero)."
-        if shutil.which(self.cfg.bin) is None:
-            return False, f"No encuentro '{self.cfg.bin}' en el PATH."
+        exe = find_bin(self.cfg.bin)
+        if exe is None:
+            return False, (f"No encuentro '{self.cfg.bin}'. Instalá Claude Code o poné la ruta "
+                           "completa en [claude] bin de config.toml.")
+        args = build_args(self.cfg, prompt, cont)
+        args[0] = exe
         self.proc = await asyncio.create_subprocess_exec(
-            *build_args(self.cfg, prompt, cont),
+            *args,
+            env=child_env(),
             cwd=os.path.expanduser(self.cfg.cwd),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

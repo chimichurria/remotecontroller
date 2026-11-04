@@ -100,6 +100,25 @@ async def main() -> None:
     assert cfg.port == 8765 and cfg.allow_web and set(cfg.claude.presets) == {"tests", "status", "review"}
     print(f"ok  config.toml cargado en Python {sys.version_info.major}.{sys.version_info.minor}")
 
+    # claude se encuentra aunque la app (abierta desde el Finder) no tenga la terminal en el PATH
+    import os
+
+    from remotehub import claude_actions as ca
+
+    tmpd = Path(tempfile.mkdtemp())
+    exe = tmpd / ("fakecl.cmd" if sys.platform == "win32" else "fakecl")
+    exe.write_text("@echo off\r\n" if sys.platform == "win32" else "#!/bin/sh\n")
+    exe.chmod(0o755)
+    old_dirs, ca.EXTRA_DIRS = ca.EXTRA_DIRS, [str(tmpd)]
+    try:
+        found = ca.find_bin("fakecl")
+        assert found and Path(found).samefile(exe), found
+        assert str(tmpd) in ca.child_env()["PATH"].split(os.pathsep)
+        assert ca.find_bin("no-existe-xyz-123") is None
+    finally:
+        ca.EXTRA_DIRS = old_dirs
+    print("ok  claude/node se buscan también fuera del PATH de la app")
+
     # Bonjour: hostnames larguísimos (runners de CI, DHCP) no pueden romper el arranque
     from remotehub.server import service_name
 
