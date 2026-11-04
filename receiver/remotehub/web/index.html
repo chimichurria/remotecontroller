@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#141612">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RemoteHub">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<title>RemoteHub</title>
+<style>
+:root{
+  --bg:#f6f4ee; --fg:#1b1d1a; --card:#ffffff; --card2:#efece3; --mut:#6a6f66;
+  --ac:#2f7d3b; --ac-fg:#ffffff; --bd:#dedbd0; --bad:#c0392b; --ok:#2f7d3b;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#141612; --fg:#eceee8; --card:#1d201b; --card2:#262a23; --mut:#9aa093;
+         --ac:#6fcf7b; --ac-fg:#0c1a0e; --bd:#2c3028; --bad:#ff7b6b; --ok:#6fcf7b; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--fg);
+  font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:none;
+  padding-top:env(safe-area-inset-top);
+}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd)}
+header h1{font-size:17px;margin:0;flex:1}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--bad);flex:none}
+.dot.on{background:var(--ok)}
+#state{font-size:13px;color:var(--mut)}
+main{flex:1;min-height:0;position:relative}
+section.tab{position:absolute;inset:0;display:none;flex-direction:column;gap:12px;padding:12px 16px;overflow:auto}
+section.tab.on{display:flex}
+nav{display:flex;border-top:1px solid var(--bd);background:var(--card);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;color:var(--mut);padding:10px 4px 8px;font:inherit;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button .ic{font-size:22px;line-height:1}
+nav button.on{color:var(--ac);font-weight:600}
+button.b,.chip{
+  border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:12px;
+  padding:12px 10px;font:inherit;font-weight:500;min-height:48px;touch-action:manipulation
+}
+button.b:active,.chip:active{background:var(--card2);transform:scale(.98)}
+button.pri{background:var(--ac);color:var(--ac-fg);border-color:var(--ac)}
+button.pri:active{background:var(--ac);opacity:.85}
+button.big{min-height:96px;font-size:22px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(4,1fr)}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 -4px}
+#pad{
+  flex:1;min-height:200px;border-radius:18px;border:1px dashed var(--bd);background:var(--card);
+  display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);
+  padding:16px;touch-action:none;user-select:none;-webkit-user-select:none
+}
+textarea,input[type=text]{
+  width:100%;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:12px;
+  padding:12px;font:inherit;resize:none
+}
+label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mut)}
+pre#cout{
+  flex:1;min-height:120px;margin:0;white-space:pre-wrap;word-break:break-word;background:var(--card);
+  border:1px solid var(--bd);border-radius:12px;padding:12px;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace;overflow:auto
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:40px;padding:8px 14px;border-radius:20px}
+#toast{
+  position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);
+  padding:10px 14px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:5
+}
+#toast.on{opacity:.95}
+#setup{
+  position:fixed;inset:0;background:var(--bg);z-index:10;display:none;flex-direction:column;gap:12px;
+  padding:calc(24px + env(safe-area-inset-top)) 16px 24px;justify-content:center
+}
+#setup.on{display:flex}
+#setup h2{margin:0;font-size:24px}
+#setup p{margin:0;color:var(--mut)}
+code{background:var(--card2);border-radius:6px;padding:1px 6px;font:13px ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<header>
+  <div class="dot" id="dot"></div>
+  <h1>RemoteHub</h1>
+  <span id="state">conectando…</span>
+</header>
+
+<main>
+  <!-- MOUSE -->
+  <section class="tab on" id="t-mouse">
+    <div id="pad">1 dedo mueve · 2 dedos scroll<br>toque = clic · 2 dedos = clic derecho<br>toque y arrastre = arrastrar</div>
+    <div class="row">
+      <button class="b" data-click="left">Clic</button>
+      <button class="b" data-click="right">Clic derecho</button>
+    </div>
+    <label class="ck"><input type="checkbox" id="invScroll"> Invertir scroll</label>
+  </section>
+
+  <!-- SLIDES -->
+  <section class="tab" id="t-slides">
+    <div class="row">
+      <button class="b big" data-slides="prev">◀︎ Atrás</button>
+      <button class="b big pri" data-slides="next">Siguiente ▶︎</button>
+    </div>
+    <div class="grid g3">
+      <button class="b" data-slides="start">▶️ Iniciar</button>
+      <button class="b" data-slides="black">⬛ Negro</button>
+      <button class="b" data-slides="end">⏹ Terminar</button>
+    </div>
+    <div class="lbl">Volumen</div>
+    <div class="grid g3">
+      <button class="b" data-media="vol_down">🔉</button>
+      <button class="b" data-media="mute">🔇</button>
+      <button class="b" data-media="vol_up">🔊</button>
+    </div>
+  </section>
+
+  <!-- TECLAS -->
+  <section class="tab" id="t-keys">
+    <textarea id="txt" rows="3" placeholder="Escribí o dictá acá y mandalo a la compu"></textarea>
+    <div class="row">
+      <label class="ck"><input type="checkbox" id="enter"> Enter al final</label>
+      <button class="b pri" id="sendTxt">Enviar</button>
+    </div>
+    <div class="lbl">Teclas</div>
+    <div class="grid">
+      <button class="b" data-key="esc">Esc</button>
+      <button class="b" data-key="tab">Tab</button>
+      <button class="b" data-key="enter">Enter</button>
+      <button class="b" data-key="backspace">⌫</button>
+      <button class="b" data-key="left">←</button>
+      <button class="b" data-key="up">↑</button>
+      <button class="b" data-key="down">↓</button>
+      <button class="b" data-key="right">→</button>
+    </div>
+    <div class="lbl">Atajos</div>
+    <div class="grid">
+      <button class="b" data-combo="mod,c">Copiar</button>
+      <button class="b" data-combo="mod,v">Pegar</button>
+      <button class="b" data-combo="mod,z">Deshacer</button>
+      <button class="b" data-combo="mod,a">Todo</button>
+      <button class="b" data-combo="appswitch">Cambiar app</button>
+      <button class="b" data-combo="search">Buscar</button>
+      <button class="b" data-combo="mod,w">Cerrar</button>
+      <button class="b" data-combo="mod,t">Pestaña</button>
+    </div>
+    <div class="lbl">Multimedia</div>
+    <div class="grid">
+      <button class="b" data-media="prev">⏮</button>
+      <button class="b" data-media="play_pause">⏯</button>
+      <button class="b" data-media="next">⏭</button>
+      <button class="b" data-media="mute">🔇</button>
+      <button class="b" data-media="vol_down">🔉</button>
+      <button class="b" data-media="vol_up">🔊</button>
+      <button class="b" data-media="bright_down">🔅</button>
+      <button class="b" data-media="bright_up">🔆</button>
+    </div>
+  </section>
+
+  <!-- CLAUDE -->
+  <section class="tab" id="t-claude">
+    <div class="chips" id="presets"></div>
+    <textarea id="ctxt" rows="3" placeholder="Pedile algo a Claude Code (podés dictarlo)"></textarea>
+    <label class="ck"><input type="checkbox" id="ccont"> Seguir la conversación anterior</label>
+    <div class="row">
+      <button class="b" id="ccancel">Cancelar</button>
+      <button class="b pri" id="csend">Enviar</button>
+    </div>
+    <pre id="cout">La respuesta aparece acá</pre>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-tab="mouse"><span class="ic">🖱️</span>Mouse</button>
+  <button data-tab="slides"><span class="ic">📽️</span>Slides</button>
+  <button data-tab="keys"><span class="ic">⌨️</span>Teclas</button>
+  <button data-tab="claude"><span class="ic">🤖</span>Claude</button>
+</nav>
+
+<div id="toast"></div>
+
+<div id="setup">
+  <h2>Conectá tu compu 🔑</h2>
+  <p>Escaneá el QR que aparece en <code>http://127.0.0.1:8765/pair</code> o pegá el token que muestra <code>python -m remotehub token</code></p>
+  <input type="text" id="tokIn" placeholder="Token" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <button class="b pri" id="tokOk">Conectar</button>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+  // ---- almacenamiento (puede fallar en modo privado) --------------------
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (_) {} },
+  };
+
+  // ---- token: viene en el fragmento del QR (#t=...) y se guarda ----------
+  let token = store.get("rh.token") || "";
+  const m = location.hash.match(/[#&]t=([^&]+)/);
+  if (m) {
+    token = decodeURIComponent(m[1]);
+    store.set("rh.token", token);
+    history.replaceState(null, "", location.pathname);
+  }
+
+  // ---- conexión ---------------------------------------------------------
+  let ws = null, retry = 0, timer = 0, authFailed = false, wakeLock = null;
+  const dot = $("#dot"), stateEl = $("#state");
+
+  function setState(on, text) {
+    dot.classList.toggle("on", on);
+    stateEl.textContent = text;
+  }
+  function toast(msg) {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove("on"), 2600);
+  }
+  function showSetup(on) { $("#setup").classList.toggle("on", on); }
+
+  function send(obj) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  }
+
+  async function keepAwake() {
+    try {
+      if ("wakeLock" in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } catch (_) {}
+  }
+
+  function connect() {
+    clearTimeout(timer);
+    if (!token) { showSetup(true); setState(false, "sin token"); return; }
+    setState(false, "conectando…");
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws.onopen = () => send({ t: "hello", token, role: "controller", name: "Control web" });
+    ws.onmessage = (ev) => {
+      let msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
+      onMessage(msg);
+    };
+    ws.onclose = () => {
+      setState(false, authFailed ? "token inválido" : "desconectado");
+      if (authFailed) return;
+      retry = Math.min(retry + 1, 6);
+      timer = setTimeout(connect, 600 * 2 ** (retry - 1));
+    };
+    ws.onerror = () => {};
+  }
+
+  function onMessage(msg) {
+    switch (msg.t) {
+      case "ready":
+        retry = 0; authFailed = false; showSetup(false);
+        setState(true, msg.platform === "darwin" ? "Mac" : msg.platform === "win32" ? "Windows" : "conectado");
+        buildPresets(msg.presets || []);
+        keepAwake();
+        break;
+      case "error":
+        if (msg.code === "auth") {
+          authFailed = true; store.del("rh.token"); token = "";
+          showSetup(true); toast("Token inválido 🔒");
+        } else if (msg.code === "locked") {
+          authFailed = true; setState(false, "bloqueado 1 min"); toast("Demasiados intentos, esperá 1 minuto");
+        } else {
+          toast(msg.msg || "Algo salió mal");
+        }
+        break;
+      case "claude.output":
+        if (claudeId !== msg.id) { claudeId = msg.id; cout.textContent = ""; }
+        cout.textContent += msg.chunk;
+        cout.scrollTop = cout.scrollHeight;
+        break;
+      case "claude.done":
+        claudeId = msg.id;
+        cout.textContent = (msg.ok ? "" : "⚠️ ") + (msg.text || cout.textContent);
+        cout.scrollTop = cout.scrollHeight;
+        break;
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      keepAwake();
+      if (!ws || ws.readyState > 1) { retry = 0; connect(); }
+    }
+  });
+
+  // ---- tabs -------------------------------------------------------------
+  $$("nav button").forEach((b) => b.addEventListener("click", () => {
+    $$("nav button").forEach((x) => x.classList.toggle("on", x === b));
+    $$("section.tab").forEach((s) => s.classList.toggle("on", s.id === "t-" + b.dataset.tab));
+  }));
+
+  // ---- botones simples --------------------------------------------------
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.click) send({ t: "mouse.click", button: b.dataset.click, count: 1 });
+    else if (b.dataset.slides) send({ t: "slides", action: b.dataset.slides });
+    else if (b.dataset.media) send({ t: "media", action: b.dataset.media });
+    else if (b.dataset.key) send({ t: "key.tap", key: b.dataset.key });
+    else if (b.dataset.combo) send({ t: "key.combo", keys: b.dataset.combo.split(",") });
+    else return;
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  // ---- texto ------------------------------------------------------------
+  $("#sendTxt").addEventListener("click", () => {
+    const el = $("#txt"), text = el.value;
+    if (!text) return;
+    send({ t: "text.type", text, enter: $("#enter").checked });
+    el.value = "";
+  });
+
+  // ---- claude -----------------------------------------------------------
+  const cout = $("#cout");
+  let claudeId = 0;
+  function buildPresets(names) {
+    const box = $("#presets");
+    box.textContent = "";
+    names.forEach((n) => {
+      const c = document.createElement("button");
+      c.className = "chip"; c.textContent = n;
+      c.addEventListener("click", () => { cout.textContent = "Pensando…"; claudeId = 0; send({ t: "claude.preset", name: n }); });
+      box.appendChild(c);
+    });
+  }
+  $("#csend").addEventListener("click", () => {
+    const el = $("#ctxt"), text = el.value.trim();
+    if (!text) return;
+    cout.textContent = "Pensando…"; claudeId = 0;
+    send({ t: "claude.run", text, continue: $("#ccont").checked });
+    el.value = "";
+  });
+  $("#ccancel").addEventListener("click", () => send({ t: "claude.cancel" }));
+
+  // ---- trackpad ---------------------------------------------------------
+  const pad = $("#pad");
+  const PX_PER_SCROLL = 14;
+  let last = null, lastCount = 0, tStart = 0, moved = 0, maxFingers = 0;
+  let dragging = false, lastTapEnd = 0;
+  let accMove = { x: 0, y: 0 }, accScroll = { x: 0, y: 0 }, raf = 0;
+
+  const centroid = (ts) => {
+    let x = 0, y = 0;
+    for (const t of ts) { x += t.clientX; y += t.clientY; }
+    return { x: x / ts.length, y: y / ts.length };
+  };
+  function flush() {
+    raf = 0;
+    if (accMove.x || accMove.y) { send({ t: "mouse.move", dx: accMove.x, dy: accMove.y }); accMove = { x: 0, y: 0 }; }
+    const sx = Math.trunc(accScroll.x / PX_PER_SCROLL), sy = Math.trunc(accScroll.y / PX_PER_SCROLL);
+    if (sx || sy) {
+      send({ t: "mouse.scroll", dx: sx, dy: sy });
+      accScroll.x -= sx * PX_PER_SCROLL; accScroll.y -= sy * PX_PER_SCROLL;
+    }
+  }
+  const queue = () => { if (!raf) raf = requestAnimationFrame(flush); };
+
+  pad.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const now = performance.now();
+    if (e.touches.length === 1) {
+      tStart = now; moved = 0; maxFingers = 1; accScroll = { x: 0, y: 0 };
+      if (now - lastTapEnd < 300) { dragging = true; send({ t: "mouse.down", button: "left" }); }
+    }
+    maxFingers = Math.max(maxFingers, e.touches.length);
+    last = centroid(e.touches); lastCount = e.touches.length;
+  }, { passive: false });
+
+  pad.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (!last || e.touches.length !== lastCount) { last = centroid(e.touches); lastCount = e.touches.length; return; }
+    const c = centroid(e.touches), dx = c.x - last.x, dy = c.y - last.y;
+    last = c; moved += Math.abs(dx) + Math.abs(dy);
+    if (e.touches.length === 1) { accMove.x += dx; accMove.y += dy; }
+    else {
+      const k = $("#invScroll").checked ? -1 : 1;   // por defecto, scroll "natural"
+      accScroll.x += -dx * k; accScroll.y += dy * k;
+    }
+    queue();
+  }, { passive: false });
+
+  function endTouch(e) {
+    e.preventDefault();
+    if (e.touches.length > 0) { last = centroid(e.touches); lastCount = e.touches.length; return; }
+    const now = performance.now();
+    flush();
+    if (dragging) { send({ t: "mouse.up", button: "left" }); dragging = false; lastTapEnd = 0; }
+    else if (e.type === "touchend" && now - tStart < 250 && moved < 10) {
+      if (maxFingers === 1) { send({ t: "mouse.click", button: "left", count: 1 }); lastTapEnd = now; }
+      else if (maxFingers === 2) { send({ t: "mouse.click", button: "right", count: 1 }); }
+    }
+    last = null; lastCount = 0; maxFingers = 0;
+  }
+  pad.addEventListener("touchend", endTouch, { passive: false });
+  pad.addEventListener("touchcancel", endTouch, { passive: false });
+
+  // ---- token manual -----------------------------------------------------
+  $("#tokOk").addEventListener("click", () => {
+    const v = $("#tokIn").value.trim();
+    if (!v) return;
+    token = v; store.set("rh.token", v); authFailed = false; retry = 0;
+    showSetup(false); connect();
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>

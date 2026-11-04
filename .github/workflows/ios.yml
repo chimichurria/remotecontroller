@@ -1,0 +1,83 @@
+name: iOS + watchOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Herramientas
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -E "iOS|watchOS" || true
+          brew install xcodegen
+
+      - name: Descargar plataformas que falten (Xcode 26 las separa)
+        run: |
+          for p in iOS watchOS; do
+            if ! xcodebuild -showsdks | grep -qi "${p}"; then sudo xcodebuild -downloadPlatform "$p"; fi
+          done
+
+      - name: Generar el proyecto
+        run: xcodegen generate
+
+      - name: Compilar para simuladores (iPhone + Watch)
+        run: |
+          set -o pipefail
+          xcodebuild -project RemoteHub.xcodeproj -scheme RemoteHub \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build-sim.log
+
+      - name: Archivar sin firmar (dispositivo real)
+        run: |
+          set -o pipefail
+          xcodebuild -project RemoteHub.xcodeproj -scheme RemoteHub \
+            -destination 'generic/platform=iOS' -configuration Release \
+            -archivePath build/RemoteHub.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            archive 2>&1 | tee build-device.log
+
+      - name: Armar el .ipa sin firmar
+        run: |
+          APP=$(find build/RemoteHub.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -1)
+          echo "App: $APP"
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry RemoteHub-unsigned.ipa Payload
+          echo "Contenido del Watch embebido:"; ls "$APP/Watch" 2>/dev/null || echo "(sin carpeta Watch)"
+          ls -la RemoteHub-unsigned.ipa
+
+      - name: Resumir errores de compilación
+        if: failure()
+        run: |
+          for f in build-sim.log build-device.log; do
+            [ -f "$f" ] || continue
+            grep -E "error:" "$f" | sed -E 's|^.*/ios/||' | sort -u | head -60 > "errors-$f.txt" || true
+            if [ -s "errors-$f.txt" ]; then
+              MSG=$(head -c 3500 "errors-$f.txt" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+              echo "::error title=Errores de compilación ($f)::$MSG"
+            fi
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-logs
+          path: ios/build-*.log
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemoteHub-unsigned-ipa
+          path: ios/RemoteHub-unsigned.ipa

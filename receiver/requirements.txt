@@ -1,0 +1,5 @@
+aiohttp>=3.9
+pynput>=1.7.6
+zeroconf>=0.130
+qrcode>=7.4
+tomli>=2.0; python_version < "3.11"

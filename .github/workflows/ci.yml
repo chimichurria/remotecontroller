@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  receiver:
+    name: receptor · ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04,    python: "3.9" }
+          - { os: ubuntu-latest,   python: "3.12" }
+          - { os: windows-latest,  python: "3.9" }
+          - { os: windows-latest,  python: "3.12" }
+          - { os: macos-15,        python: "3.12" }
+          - { os: macos-15-intel,  python: "3.9" }
+    defaults:
+      run:
+        working-directory: receiver
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Instalar dependencias
+        shell: bash
+        run: |
+          python -m pip install -U pip
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # pynput en Linux necesita compilar evdev y no se usa en los tests (import tardío)
+            grep -vi '^pynput' requirements.txt > /tmp/req.txt
+            pip install -r /tmp/req.txt
+          else
+            pip install -r requirements.txt
+          fi
+      - name: pynput se importa (Mac y Windows)
+        if: runner.os != 'Linux'
+        run: python -c "from pynput import keyboard, mouse; print('pynput ok')"
+      - name: Tests sin sockets (control web, pairing, config)
+        run: python -m tests.test_web
+      - name: Tests de protocolo (WebSocket real)
+        run: python -m tests.test_protocol

@@ -1,0 +1,32 @@
+# Copiar a:
+#   macOS:    ~/Library/Application Support/remotehub/config.toml
+#   Windows:  %APPDATA%\remotehub\config.toml
+# Todo es opcional; estos son los valores por defecto.
+
+host = "0.0.0.0"
+port = 8765
+sensitivity = 1.6          # velocidad base del cursor
+accel = 1.0                # 0 = sin aceleración
+scroll_sensitivity = 1.0
+allow_keys = true          # false = bloquea teclas y dictado (solo mouse/slides/media)
+allow_claude = true
+allow_web = true           # false = sin control web (solo la app nativa)
+
+# Combo para iniciar la presentación. Vacío = Cmd+Shift+Enter (Mac) / F5 (Windows).
+# Keynote: ["cmd", "alt", "p"]    Google Slides: ["mod", "enter"]
+slides_start = []
+
+[claude]
+bin = "claude"
+cwd = "~/proyectos/mi-repo"   # <- cambialo: carpeta donde corre Claude Code
+permission_mode = "default"
+# En modo headless Claude solo puede usar estas herramientas (sin ellas no pide permiso: falla).
+# Solo lectura por defecto. Agregá "Bash(npm test:*)" o "Edit" bajo tu propio riesgo.
+allowed_tools = ["Read", "Grep", "Glob"]
+max_turns = 8
+timeout = 600
+
+[claude.presets]
+tests  = "Corré los tests del proyecto y resumime en 5 líneas qué falla."
+status = "Resumime en 5 líneas el estado del repo (git status y últimos commits)."
+review = "Revisá los cambios sin commitear y decime los 3 riesgos más importantes."
